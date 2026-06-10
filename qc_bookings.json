@@ -47,6 +47,30 @@
     "total_usd": 9340,
     "updated_at": "2026-06-10T10:08:29.792755"
   },
+  "HF-Q-100626-HN7CTZ": {
+    "ac_key": "as350",
+    "ac_label": "Airbus H125 (5 seater)",
+    "client_email": "khalif@",
+    "client_name": "khalif",
+    "client_whatsapp": "0755448485",
+    "created_at": "2026-06-10T14:46:46.854087",
+    "mission": "one_way",
+    "notes": "",
+    "payment_method": "",
+    "payment_ref": "",
+    "quote_snapshot": {
+      "ac_key": "as350",
+      "ac_label": "Airbus H125 (5 seater)",
+      "mission": "one_way",
+      "route_summary": "Wilson to Fairmont Mount Kenya Safari Club (79.4 nm)",
+      "total_usd": 3180
+    },
+    "route_summary": "Wilson to Fairmont Mount Kenya Safari Club (79.4 nm)",
+    "status": "PENDING",
+    "token": "HF-Q-100626-HN7CTZ",
+    "total_usd": 3180,
+    "updated_at": "2026-06-10T14:46:46.854093"
+  },
   "HF-Q-100626-OFJOCV": {
     "ac_key": "as350",
     "ac_label": "Airbus H125 (5 seater)",
