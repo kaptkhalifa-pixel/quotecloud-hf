@@ -158,7 +158,7 @@ body { font-family: 'Inter', sans-serif; background: var(--navy); color: var(--w
 @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 @media(max-width:700px) {
   .quote-intro { grid-template-columns: 1fr; gap: 32px; padding: 28px 20px 40px; }
-  .qi-left { display: none; }
+  .qi-left { display: block; }
   .site-header { padding: 14px 20px; }
   .results-outer { padding: 0 20px 60px; }
   .form-row-2 { grid-template-columns: 1fr; }
@@ -169,10 +169,6 @@ body { font-family: 'Inter', sans-serif; background: var(--navy); color: var(--w
 </style>
 </head>
 <body>
-<div class="site-header">
-  <img id="header-logo" src="" alt="">
-  <div class="site-header-right" id="header-region">Kenya</div>
-</div>
 <div class="quote-intro">
   <div class="qi-left">
     <div class="qi-eyebrow">Instant Charter Quote</div>
@@ -373,11 +369,9 @@ async function init() {
 function applyBranding() {
   document.getElementById('page-title').textContent = (config.company_name||'Charter') + ' - Instant Quotes';
   let logo = document.getElementById('header-logo'), footerLogo = document.getElementById('footer-logo'), qLogo = document.getElementById('qcard-logo');
-  if (config.logo_url) {
-    logo.src = config.logo_url; logo.alt = config.company_name||'';
-    footerLogo.src = config.logo_url; footerLogo.alt = config.company_name||'';
-    qLogo.src = config.logo_url; qLogo.alt = config.company_name||'';
-  } else { logo.style.display='none'; footerLogo.style.display='none'; qLogo.style.display='none'; }
+  if (logo) logo.style.display='none';
+  if (footerLogo) footerLogo.style.display='none';
+  if (qLogo) qLogo.style.display='none';
   let region = (config.geo_lock||{}).region_name||'Kenya';
   document.getElementById('header-region').textContent = region;
   let wa=(config.contact||{}).whatsapp||'', phone=(config.contact||{}).phone||'';
