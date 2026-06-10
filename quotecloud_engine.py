@@ -757,7 +757,7 @@ def _build_pdf_html(payload):
         ".accent-bar{height:2.5pt;background:#000}"
         ".page{width:210mm;min-height:297mm;background:#fff;padding:16mm 16mm 24mm;position:relative}"
         ".header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10mm;padding-bottom:8mm;border-bottom:0.5pt solid #000}"
-        ".logo{height:90pt;object-fit:contain;display:block;margin-bottom:6pt}"
+        ".logo{height:52pt;object-fit:contain;display:block;margin-bottom:6pt}"
         ".company-block{font-size:9pt;color:#111;line-height:1.85}"
         ".company-name{font-weight:bold;color:#000;font-size:10pt;display:block;margin-bottom:1pt}"
         ".doc-type{font-size:28pt;letter-spacing:4pt;text-transform:uppercase;color:#000;line-height:1;text-align:right}"
