@@ -47,6 +47,54 @@
     "total_usd": 9340,
     "updated_at": "2026-06-10T10:08:29.792755"
   },
+  "HF-Q-100626-OFJOCV": {
+    "ac_key": "as350",
+    "ac_label": "Airbus H125 (5 seater)",
+    "client_email": "khalif@khalifkairo.com",
+    "client_name": "khalif kairo",
+    "client_whatsapp": "0722750570",
+    "created_at": "2026-06-10T12:23:29.592620",
+    "mission": "one_way",
+    "notes": "",
+    "payment_method": "",
+    "payment_ref": "",
+    "quote_snapshot": {
+      "ac_key": "as350",
+      "ac_label": "Airbus H125 (5 seater)",
+      "mission": "one_way",
+      "route_summary": "Wilson Airport to Narok (58.5 nm)",
+      "total_usd": 2300
+    },
+    "route_summary": "Wilson Airport to Narok (58.5 nm)",
+    "status": "PENDING",
+    "token": "HF-Q-100626-OFJOCV",
+    "total_usd": 2300,
+    "updated_at": "2026-06-10T12:23:29.592626"
+  },
+  "HF-Q-100626-OW3K20": {
+    "ac_key": "as350",
+    "ac_label": "Airbus H125 (5 seater)",
+    "client_email": "khalif@khalifkairo.com",
+    "client_name": "khalif kairo",
+    "client_whatsapp": "0722750570",
+    "created_at": "2026-06-10T12:23:29.370204",
+    "mission": "one_way",
+    "notes": "",
+    "payment_method": "",
+    "payment_ref": "",
+    "quote_snapshot": {
+      "ac_key": "as350",
+      "ac_label": "Airbus H125 (5 seater)",
+      "mission": "one_way",
+      "route_summary": "Wilson Airport to Narok (58.5 nm)",
+      "total_usd": 2300
+    },
+    "route_summary": "Wilson Airport to Narok (58.5 nm)",
+    "status": "PENDING",
+    "token": "HF-Q-100626-OW3K20",
+    "total_usd": 2300,
+    "updated_at": "2026-06-10T12:23:29.370211"
+  },
   "HF-Q-100626-TMUHC7": {
     "ac_key": "as350",
     "ac_label": "Airbus H125 (5 seater)",
