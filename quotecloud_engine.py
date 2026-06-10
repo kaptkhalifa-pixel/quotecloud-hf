@@ -752,7 +752,7 @@ def _build_pdf_html(payload):
 
     css = (
         "*{box-sizing:border-box;margin:0;padding:0}"
-        "@page{size:A4;margin:0}"
+        "@page{size:A4;margin:0}img{-webkit-print-color-adjust:exact;print-color-adjust:exact}"
         "html,body{width:210mm;min-height:297mm;font-family:Arial,sans-serif;background:#fff}"
         ".accent-bar{height:2.5pt;background:#000}"
         ".page{width:210mm;min-height:297mm;background:#fff;padding:16mm 16mm 24mm;position:relative}"
@@ -808,7 +808,7 @@ def generate_pdf_weasy(payload, out_path):
     from weasyprint import HTML as WeasyprintHTML
     pathlib.Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     html_string = _build_pdf_html(payload)
-    WeasyprintHTML(string=html_string, base_url=None).write_pdf(out_path)
+    WeasyprintHTML(string=html_string, base_url=None).write_pdf(out_path, presentational_hints=True)
 
 # =========================================================
 # SECTION 7 - PDF PROMPT
