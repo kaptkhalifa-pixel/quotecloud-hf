@@ -70,5 +70,29 @@
     "token": "HF-Q-100626-TMUHC7",
     "total_usd": 9340,
     "updated_at": "2026-06-10T10:08:29.791167"
+  },
+  "HF-Q-100626-U97PJU": {
+    "ac_key": "as350",
+    "ac_label": "Airbus H125 (5 seater)",
+    "client_email": "jose@gmail.com",
+    "client_name": "jose",
+    "client_whatsapp": "088888",
+    "created_at": "2026-06-10T11:58:05.687679",
+    "mission": "one_way",
+    "notes": "",
+    "payment_method": "",
+    "payment_ref": "",
+    "quote_snapshot": {
+      "ac_key": "as350",
+      "ac_label": "Airbus H125 (5 seater)",
+      "mission": "one_way",
+      "route_summary": "Wilson Airport to Mahali Mzuri Safari Camp (468.9 nm)",
+      "total_usd": 17480
+    },
+    "route_summary": "Wilson Airport to Mahali Mzuri Safari Camp (468.9 nm)",
+    "status": "PENDING",
+    "token": "HF-Q-100626-U97PJU",
+    "total_usd": 17480,
+    "updated_at": "2026-06-10T11:58:05.687684"
   }
 }

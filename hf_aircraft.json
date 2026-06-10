@@ -1,8 +1,16 @@
 {
   "as350": {
     "active": true,
+    "allow_urban_hops": true,
+    "base_lat": -1.3202647,
+    "base_lon": 36.8148652,
     "home_airstrip": "Wilson Airport, Nairobi",
     "idle_day_rate": 2200,
+    "images": [
+      "https://i.ibb.co/dJ12n03F/b43651d86731.webp",
+      "https://i.ibb.co/0RZBjjbz/7d81e9881a78.jpg",
+      "https://i.ibb.co/Ng92sSMK/935f6dfe4e70.jpg"
+    ],
     "label": "Airbus H125",
     "overnight_rate": 300,
     "pax_fee": 100,
