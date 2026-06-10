@@ -16,6 +16,7 @@ app = Flask(__name__)
 OPERATOR_CONFIG_FILE = "operator_config.json"
 AIRCRAFT_CONFIG_FILE = "hf_aircraft.json"
 RECORDS_FILE = "qc_records.json"
+BOOKINGS_FILE = "qc_bookings.json"
 
 def load_operator_config():
     p = pathlib.Path(OPERATOR_CONFIG_FILE)
@@ -30,7 +31,7 @@ OPERATOR = load_operator_config()
 if not OPERATOR.get("branding"):
     OPERATOR["branding"] = {"primary_color": "#1a56db", "accent_color": "#f59e0b", "button_color": "#f59e0b", "button_text": "#ffffff"}
 if not OPERATOR.get("company_name"):
-    OPERATOR["company_name"] = "Quotecloud"
+    OPERATOR["company_name"] = "Heli Flight Air Africa"
 if not OPERATOR.get("logo_url"):
     OPERATOR["logo_url"] = ""
 if not OPERATOR.get("footer"):
@@ -63,14 +64,21 @@ def get_quoting_rules():
     })
 
 def get_geo_lock():
+    try:
+        p = pathlib.Path(OPERATOR_CONFIG_FILE)
+        if p.exists():
+            cfg = json.loads(p.read_text())
+            if cfg.get("geo_lock"):
+                return cfg["geo_lock"]
+    except Exception:
+        pass
     return OPERATOR.get("geo_lock", {
         "enabled": True,
         "region_name": "Kenya",
-        "preset": "kenya",
-        "lat_min": -5.0,
-        "lat_max": 5.0,
-        "lon_min": 33.5,
-        "lon_max": 42.0
+        "mode": "radius",
+        "center_lat": -0.023,
+        "center_lon": 37.906,
+        "radius_km": 500
     })
 
 def get_whatsapp():
@@ -166,6 +174,36 @@ def load_aircraft():
 
 def save_aircraft(data):
     pathlib.Path(AIRCRAFT_CONFIG_FILE).write_text(json.dumps(data, indent=2))
+def load_bookings():
+    p = pathlib.Path(BOOKINGS_FILE)
+    if p.exists():
+        try:
+            return json.loads(p.read_text())
+        except Exception:
+            pass
+    return {}
+
+def save_bookings(bookings):
+    pathlib.Path(BOOKINGS_FILE).write_text(json.dumps(bookings, indent=2))
+
+def generate_token(doc_type="Q"):
+    import random, string
+    prefix = OPERATOR.get("invoice", {}).get("prefix", "JG")
+    today = datetime.date.today()
+    date_str = today.strftime("%d%m%y")
+    chars = string.ascii_uppercase + string.digits
+    rand = ''.join(random.choices(chars, k=6))
+    return f"{prefix}-{doc_type}-{date_str}-{rand}"
+
+def generate_booking_token():
+    return generate_token("Q")
+
+def inherit_token(token, new_type):
+    parts = token.split("-")
+    if len(parts) == 4:
+        parts[1] = new_type
+        return "-".join(parts)
+    return generate_token(new_type)
 
 def load_records():
     p = pathlib.Path(RECORDS_FILE)
@@ -179,10 +217,9 @@ def load_records():
 def save_records(records):
     pathlib.Path(RECORDS_FILE).write_text(json.dumps(records, indent=2))
 
-def next_record_number(doc_type="Quotation"):
-    records = load_records()
-    prefix = OPERATOR.get("invoice", {}).get("prefix", "QC")
-    year = datetime.date.today().year
+def next_record_number(doc_type="Quotation", token_override=None):
+    if token_override:
+        return token_override
     if doc_type in ("Quotation", "Quote"):
         type_code = "Q"
     elif doc_type == "Invoice":
@@ -191,10 +228,7 @@ def next_record_number(doc_type="Quotation"):
         type_code = "R"
     else:
         type_code = "Q"
-    seq = len([r for r in records
-               if str(year) in r.get("number", "") and
-               f"-{type_code}-" in r.get("number", "")]) + 1
-    return f"{prefix}-{type_code}-{year}-{seq:03d}"
+    return generate_token(type_code)
 
 def save_record(record_type, client_name, client_email, amount, doc_number, result=None, extra=None):
     records = load_records()
@@ -219,13 +253,63 @@ def save_record(record_type, client_name, client_email, amount, doc_number, resu
         rec.update(extra)
     records.append(rec)
     save_records(records)
-
+def upload_pdf_to_imgbb(pdf_path):
+    try:
+        import requests as req
+        import base64
+        with open(pdf_path, "rb") as f:
+            pdf_data = base64.b64encode(f.read()).decode("utf-8")
+        imgbb_key = "c6febd5ceb1476c58ddcf727d5b68969"
+        r = req.post(
+            "https://api.imgbb.com/1/upload",
+            data={"key": imgbb_key, "image": pdf_data},
+            timeout=30
+        )
+        result = r.json()
+        if result.get("success"):
+            return result["data"]["url"]
+    except Exception:
+        pass
+    return None
 def check_geo_lock(lat, lon):
     geo = get_geo_lock()
     if not geo.get("enabled", True):
         return True
-    return (float(geo.get("lat_min", -5.0)) <= lat <= float(geo.get("lat_max", 5.0)) and
-            float(geo.get("lon_min", 33.5)) <= lon <= float(geo.get("lon_max", 42.0)))
+    center_lat = float(geo.get("center_lat", -0.023))
+    center_lon = float(geo.get("center_lon", 37.906))
+    radius_km = float(geo.get("radius_km", 500))
+    radius_nm = radius_km / 1.852
+    return _nm_distance(lat, lon, center_lat, center_lon) <= radius_nm
+
+BASE_SNAP_NM = 4.0
+
+def _nm_distance(lat1, lon1, lat2, lon2):
+    import math
+    R = 3440.065
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+def get_base_key_for_aircraft(ac_cfg):
+    home = ac_cfg.get("home_airstrip", "wilson")
+    base_name = home.split(",")[0].strip().lower()
+    try:
+        hq.lookup_coords(base_name)
+        return base_name
+    except Exception:
+        words = base_name.split()
+        for w in words:
+            try:
+                hq.lookup_coords(w)
+                return w
+            except Exception:
+                pass
+    return base_name
+
+def snap_to_base_coords(lat, lon, base_lat, base_lon):
+    return _nm_distance(lat, lon, base_lat, base_lon) <= BASE_SNAP_NM
 
 def geo_lock_error(location_name):
     wa = get_whatsapp()
@@ -337,6 +421,7 @@ def resolve_location(s, user_label=None):
         return display, f"{lat},{lon}"
     except Exception:
         pass
+
     if is_maps_url(s):
         return None, s
     place = hq._extract_place_name(s)
@@ -352,7 +437,7 @@ def resolve_location(s, user_label=None):
     clean = s.strip()
     if len(clean) < 3:
         return None, s
-    if not re.match(r"^[a-zA-Z0-9\s\-'\,\.]+$", clean):
+    if not re.match(r"^[a-zA-Z0-9\s\-'\,\.\(\)\/]+$", clean):
         return None, s
     if re.match(r"^[0-9\s]+$", clean):
         return None, s
@@ -470,9 +555,37 @@ def compute_for_aircraft(mission, ac_key, ac_cfg, pickup_coord, dropoff_coord,
     buffer_mins = float(rules.get("ground_time_buffer_minutes", 0))
     buffer_hours = (buffer_mins / 60.0) if buffer_enabled and buffer_mins > 0 else 0
 
+    base_lat_cfg = ac_cfg.get("base_lat")
+    base_lon_cfg = ac_cfg.get("base_lon")
+    base_key = get_base_key_for_aircraft(ac_cfg)
+    allow_urban_hops = (ac_cfg.get("type", "helicopter") == "helicopter" and
+                        ac_cfg.get("allow_urban_hops", False))
+    def maybe_snap(coord):
+        if not coord or allow_urban_hops:
+            return coord
+        try:
+            parts = coord.split(",")
+            if len(parts) == 2:
+                lat, lon = float(parts[0]), float(parts[1])
+                if base_lat_cfg and base_lon_cfg:
+                    if snap_to_base_coords(lat, lon, float(base_lat_cfg), float(base_lon_cfg)):
+                        return base_key
+        except Exception:
+            pass
+        return coord
+    if pickup_coord:
+        pickup_coord = maybe_snap(pickup_coord)
+    if dropoff_coord:
+        dropoff_coord = maybe_snap(dropoff_coord)
+    if legs:
+        for leg in legs:
+            leg["origin"] = maybe_snap(leg["origin"])
+            leg["destination"] = maybe_snap(leg["destination"])
+
     orig = hq.AIRCRAFT.copy()
     orig_pax = hq.PAX_ADMIN_FEE_USD
     hq.AIRCRAFT[ac_key] = {
+
         "label": f"{ac_cfg['label']} ({ac_cfg['seater']} seater)",
         "speed": speed,
         "rate": rate,
@@ -544,6 +657,7 @@ def compute_for_aircraft(mission, ac_key, ac_cfg, pickup_coord, dropoff_coord,
         result["min_chargeable_hrs"] = min_hrs
         result["min_applied"] = result.get("billed_hours", 0) > sum(
             float(s.get("hours", 0)) for s in (result.get("segments") or []) if s.get("type"))
+        result["images"] = ac_cfg.get("images", [])
 
     except Exception as e:
         result = {
@@ -593,8 +707,14 @@ def run_quote_engine(data):
                 return {"error": geo_lock_error(raw_d), "not_found": raw_d}, 400
             display_map[p_coord] = p_disp
             display_map[d_coord] = d_disp
+            ow_date = data.get("depart", "")
             results = [compute_for_aircraft("one_way", k, v, p_coord, d_coord,
                                             display_map=display_map) for k, v in active.items()]
+            if ow_date:
+                for res in results:
+                    for s in (res.get("segments") or []):
+                        if s.get("type") == "revenue":
+                            s["date"] = ow_date
         elif mission == "return":
             raw_p = data.get("pickup", "")
             raw_d = data.get("dropoff", "")
@@ -744,10 +864,11 @@ def build_pdf_payload_from_result(doc_type, result, client_name, client_email,
             "unit_cost": str(ei.get("unit_cost", "0"))
         })
 
-    to_block = "\n".join(filter(None, [client_name, client_email, client_phone]))
+    to_block = "\n".join(filter(None, [client_name, client_phone, client_email]))
     bank_block = get_bank_details_block()
     terms = OPERATOR.get("invoice", {}).get("terms", "")
-    doc_number = next_record_number(doc_type)
+    token_override = extra_items.pop("_token_override", None) if isinstance(extra_items, dict) else None
+    doc_number = next_record_number(doc_type, token_override)
     disc = float(discount) if discount else 0
 
     payload = {
@@ -771,8 +892,9 @@ def build_pdf_payload_from_result(doc_type, result, client_name, client_email,
     return payload, doc_number
 
 @app.route("/")
-@login_required
 def index():
+    if not session.get("logged_in"):
+        return redirect(url_for("quote_page"))
     return render_template("index.html", operator=OPERATOR)
 
 @app.route("/admin/quote", methods=["POST"])
@@ -811,15 +933,17 @@ def pdf():
             client_phone, note, discount, extra_items)
 
         out_path = f"/tmp/{doc_number}.pdf"
-        hq.generate_pdf(payload, out_path)
+        hq.generate_pdf_weasy(payload, out_path)
 
+        pdf_url = upload_pdf_to_imgbb(out_path)
         total = calc_pdf_total(result, extra_items, discount)
         save_record(doc_type, client_name, client_email, total, doc_number, {
             "ac_label": result.get("ac_label", ""),
-            "mission": result.get("mission", "")
+            "mission": result.get("mission", ""),
+            "pdf_url": pdf_url or ""
         })
 
-        return send_file(out_path, as_attachment=True,
+        return send_file(out_path, as_attachment=False,
                          download_name=f"{doc_number}.pdf",
                          mimetype="application/pdf")
     except Exception as e:
@@ -866,7 +990,7 @@ def pdf_all():
                 client_phone, note, discount, extra_items)
 
             out_path = f"/tmp/{doc_number}.pdf"
-            hq.generate_pdf(payload, out_path)
+            hq.generate_pdf_weasy(payload, out_path)
 
             total = calc_pdf_total(actual, extra_items, discount)
             save_record(doc_type, client_name, client_email, total, doc_number, {
@@ -907,7 +1031,16 @@ def manual_invoice():
         bank_override = data.get("bank_block", "")
         line_items = data.get("line_items", [])
         doc_type = data.get("doc_type", "Invoice")
-        doc_number = next_record_number(doc_type)
+        source_token = data.get("source_token", "")
+        if doc_type in ("Quotation", "Quote"):
+            type_code = "Q"
+        elif doc_type == "Invoice":
+            type_code = "I"
+        elif doc_type == "Receipt":
+            type_code = "R"
+        else:
+            type_code = "Q"
+        doc_number = inherit_token(source_token, type_code) if source_token else generate_token(type_code)
 
         items = []
         total = 0.0
@@ -924,7 +1057,7 @@ def manual_invoice():
         disc = float(discount) if discount else 0
         total = round(total - disc, 2)
 
-        to_block = "\n".join(filter(None, [client_name, client_email, client_phone]))
+        to_block = "\n".join(filter(None, [client_name, client_phone, client_email]))
         bank_block = bank_override if bank_override else get_bank_details_block()
         terms = terms_override if terms_override else OPERATOR.get("invoice", {}).get("terms", "")
 
@@ -947,18 +1080,32 @@ def manual_invoice():
         }
 
         out_path = f"/tmp/{doc_number}.pdf"
-        hq.generate_pdf(payload, out_path)
-        save_record(doc_type, client_name, client_email, total, doc_number)
+        hq.generate_pdf_weasy(payload, out_path)
+        pdf_url = upload_pdf_to_imgbb(out_path)
+        save_record(doc_type, client_name, client_email, total, doc_number,
+                    extra={"pdf_url": pdf_url or ""})
 
-        return send_file(out_path, as_attachment=True,
-                         download_name=f"{doc_number}.pdf",
-                         mimetype="application/pdf")
+        if source_token:
+            bookings = load_bookings()
+            if source_token in bookings:
+                bookings[source_token]["invoice_number"] = doc_number
+                bookings[source_token]["invoice_url"] = pdf_url or ""
+                bookings[source_token]["updated_at"] = datetime.datetime.now().isoformat()
+                save_bookings(bookings)
+
+        response = send_file(out_path, as_attachment=False,
+                             download_name=f"{doc_number}.pdf",
+                             mimetype="application/pdf")
+        response.headers["X-PDF-URL"] = pdf_url or ""
+        response.headers["X-DOC-NUMBER"] = doc_number
+        return response
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
 @app.route("/records", methods=["GET"])
 @login_required
 def get_records():
+
     return jsonify(load_records())
 
 @app.route("/records/get_one", methods=["POST"])
@@ -1045,10 +1192,11 @@ def generate_receipt():
         return jsonify({"error": "Record not found"}), 404
 
     total = float(rec.get("amount", 0))
-    receipt_number = next_record_number("Receipt")
+    receipt_number = inherit_token(number, "R")
 
     to_block = "\n".join(filter(None, [
         rec.get("client_name", ""),
+        rec.get("client_phone", ""),
         rec.get("client_email", ""),
     ]))
 
@@ -1075,8 +1223,10 @@ def generate_receipt():
         "to": to_block,
         "number": receipt_number,
         "date": datetime.date.today().strftime("%d %b %Y"),
+        "due_date": datetime.date.today().strftime("%d %b %Y"),
         "items": items,
-        "amount_paid": paid_amount,
+        "discounts": 0,
+        "fields": {"tax": False, "discounts": False, "shipping": False},
         "notes": bank_block,
         "notes_title": "BANK DETAILS",
         "terms": terms,
@@ -1086,7 +1236,8 @@ def generate_receipt():
     }
 
     out_path = f"/tmp/{receipt_number}.pdf"
-    hq.generate_pdf(payload, out_path)
+    hq.generate_pdf_weasy(payload, out_path)
+    receipt_pdf_url = upload_pdf_to_imgbb(out_path)
 
     rec["paid"] = paid_amount >= total
     rec["paid_amount"] = round(paid_amount, 2)
@@ -1094,6 +1245,7 @@ def generate_receipt():
     rec["payment_mode"] = payment_mode
     rec["payment_ref"] = payment_ref
     rec["receipt_number"] = receipt_number
+    rec["receipt_url"] = receipt_pdf_url or ""
 
     if "payment_log" not in rec:
         rec["payment_log"] = []
@@ -1108,11 +1260,29 @@ def generate_receipt():
 
     save_records(records)
     save_record("Receipt", rec.get("client_name", ""), rec.get("client_email", ""),
-                paid_amount, receipt_number)
+                paid_amount, receipt_number,
+                extra={"pdf_url": receipt_pdf_url or "",
+                       "client_whatsapp": rec.get("client_whatsapp", "")})
 
-    return send_file(out_path, as_attachment=True,
-                     download_name=f"{receipt_number}.pdf",
-                     mimetype="application/pdf")
+    response = send_file(out_path, as_attachment=False,
+                         download_name=f"{receipt_number}.pdf",
+                         mimetype="application/pdf")
+    response.headers["X-PDF-URL"] = receipt_pdf_url or ""
+    response.headers["X-DOC-NUMBER"] = receipt_number
+    return response
+@app.route("/records/update_whatsapp", methods=["POST"])
+@login_required
+def update_record_whatsapp():
+    data = request.get_json()
+    number = data.get("number", "")
+    whatsapp = data.get("client_whatsapp", "").strip()
+    records = load_records()
+    rec = next((r for r in records if r.get("number") == number), None)
+    if not rec:
+        return jsonify({"error": "Record not found"}), 404
+    rec["client_whatsapp"] = whatsapp
+    save_records(records)
+    return jsonify({"success": True})
 
 @app.route("/records/edit", methods=["POST"])
 @login_required
@@ -1203,6 +1373,20 @@ def delete_airport():
 @login_required
 def get_aircraft():
     return jsonify(load_aircraft())
+@app.route("/aircraft/resolve_base", methods=["POST"])
+@login_required
+def resolve_base():
+    data = request.get_json()
+    location = (data.get("location") or "").strip()
+    if not location:
+        return jsonify({"error": "Location required"}), 400
+    disp, coord = resolve_location(location, user_label=location)
+    if not disp:
+        return jsonify({"found": False, "error": "Could not resolve location"})
+    parts = coord.split(",")
+    if len(parts) == 2:
+        return jsonify({"found": True, "lat": float(parts[0]), "lon": float(parts[1]), "display": disp})
+    return jsonify({"found": False})
 
 @app.route("/aircraft/save", methods=["POST"])
 @login_required
@@ -1326,6 +1510,24 @@ def search_location():
         return jsonify({"found": False})
     parts = coord.split(",")
     return jsonify({"found": True, "lat": float(parts[0]), "lon": float(parts[1]), "display": disp})
+@app.route("/autocomplete", methods=["POST"])
+def autocomplete():
+    data = request.get_json()
+    query = (data.get("query") or "").strip()
+    if not query or len(query) < 3:
+        return jsonify({"predictions": []})
+    try:
+        import requests as req
+        r = req.get(
+            "https://maps.googleapis.com/maps/api/place/autocomplete/json",
+            params={"input": query, "key": GOOGLE_API_KEY, "components": "country:ke", "language": "en"},
+            timeout=5
+        )
+        data = r.json()
+        predictions = [{"description": p["description"], "main": p.get("structured_formatting", {}).get("main_text", ""), "secondary": p.get("structured_formatting", {}).get("secondary_text", "")} for p in data.get("predictions", [])]
+        return jsonify({"predictions": predictions})
+    except Exception as e:
+        return jsonify({"predictions": [], "error": str(e)})
 
 @app.route("/resolve_pin", methods=["POST"])
 @login_required
@@ -1346,7 +1548,7 @@ def backup_configs():
     if key != app.secret_key:
         return jsonify({"error": "Unauthorized"}), 401
     configs = {}
-    for fname in [OPERATOR_CONFIG_FILE, AIRCRAFT_CONFIG_FILE, RECORDS_FILE]:
+    for fname in [OPERATOR_CONFIG_FILE, AIRCRAFT_CONFIG_FILE, RECORDS_FILE, BOOKINGS_FILE]:
         p = pathlib.Path(fname)
         if p.exists():
             try:
@@ -1356,6 +1558,195 @@ def backup_configs():
         else:
             configs[fname] = {}
     return jsonify(configs)
+@app.route("/upload_image", methods=["POST"])
+@login_required
+def upload_image():
+    try:
+        import requests as req
+        import base64
+        file = request.files.get("image")
+        if not file:
+            return jsonify({"error": "No image provided"}), 400
+        image_data = base64.b64encode(file.read()).decode("utf-8")
+        imgbb_key = "c6febd5ceb1476c58ddcf727d5b68969"
+        r = req.post(
+            "https://api.imgbb.com/1/upload",
+            data={"key": imgbb_key, "image": image_data},
+            timeout=30
+        )
+        result = r.json()
+        if result.get("success"):
+            url = result["data"]["url"]
+            return jsonify({"success": True, "url": url})
+        return jsonify({"error": "Upload failed"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+@app.route("/booking/request", methods=["POST"])
+def booking_request():
+    data = request.get_json()
+    try:
+        client_name = data.get("client_name", "").strip()
+        client_email = data.get("client_email", "").strip()
+        quote_snapshot = data.get("quote_snapshot", {})
+        if not client_name:
+            return jsonify({"error": "Name required"}), 400
+        token = generate_booking_token()
+        bookings = load_bookings()
+        route_summary = data.get("route_summary", "")
+        client_whatsapp = data.get("client_whatsapp", "").strip()
+        bookings[token] = {
+            "token": token,
+            "status": "PENDING",
+            "client_name": client_name,
+            "client_email": client_email,
+            "client_whatsapp": client_whatsapp,
+            "ac_label": quote_snapshot.get("ac_label", ""),
+            "ac_key": quote_snapshot.get("ac_key", ""),
+            "total_usd": quote_snapshot.get("total_usd", 0),
+            "mission": quote_snapshot.get("mission", ""),
+            "route_summary": route_summary,
+            "quote_snapshot": quote_snapshot,
+            "created_at": datetime.datetime.now().isoformat(),
+            "updated_at": datetime.datetime.now().isoformat(),
+            "payment_method": "",
+            "payment_ref": "",
+            "notes": ""
+        }
+        save_bookings(bookings)
+        wa = get_whatsapp()
+        notify_lines = [
+            "NEW CHARTER REQUEST",
+            f"Ref: {token}",
+            f"Client: {client_name}",
+            f"Email: {client_email}",
+            f"Aircraft: {quote_snapshot.get('ac_label','')}",
+            f"Route: {route_summary}",
+            f"Total: USD ${float(quote_snapshot.get('total_usd',0)):,.2f}",
+            "Review in your admin panel."
+        ]
+        notify_msg = "\n".join(notify_lines)
+        encoded_msg = notify_msg.replace(' ', '%20').replace('\n', '%0A')
+        notify_wa = f"https://wa.me/{wa}?text={encoded_msg}" if wa else ""
+        return jsonify({
+            "success": True,
+            "token": token,
+            "notify_wa": notify_wa
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+@app.route("/booking/pdf/<token>", methods=["GET"])
+def booking_pdf_get(token):
+    try:
+        out_path = f"/tmp/{token}.pdf"
+        if not pathlib.Path(out_path).exists():
+            return jsonify({"error": "PDF not found"}), 404
+        return send_file(out_path, as_attachment=False,
+                         download_name=f"{token}.pdf",
+                         mimetype="application/pdf")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+@app.route("/booking/pdf", methods=["POST"])
+def booking_pdf():
+    data = request.get_json()
+    try:
+        client_name = data.get("client_name", "Client")
+        client_email = data.get("client_email", "")
+        client_phone = data.get("client_phone", "")
+        token = data.get("token", "")
+        result = data.get("result", {})
+        payload, _ = build_pdf_payload_from_result(
+            "Quotation", result, client_name, client_email, client_phone, "", "0", [])
+        payload["number"] = token
+        payload["notes"] = ""
+        payload["notes_title"] = ""
+        out_path = f"/tmp/{token}.pdf"
+        hq.generate_pdf_weasy(payload, out_path)
+        pdf_url = upload_pdf_to_imgbb(out_path)
+        response = send_file(out_path, as_attachment=False,
+                             download_name=f"{token}.pdf",
+                             mimetype="application/pdf")
+        response.headers["X-PDF-URL"] = pdf_url or ""
+        return response
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/booking/status/<token>", methods=["GET"])
+def booking_status(token):
+    bookings = load_bookings()
+    b = bookings.get(token)
+    if not b:
+        return jsonify({"error": "Booking not found"}), 404
+    return jsonify({
+        "token": b["token"],
+        "status": b["status"],
+        "ac_label": b["ac_label"],
+        "total_usd": b["total_usd"],
+        "client_name": b["client_name"],
+        "created_at": b["created_at"]
+    })
+
+@app.route("/booking/update", methods=["POST"])
+@login_required
+def booking_update():
+    data = request.get_json()
+    token = data.get("token", "")
+    status = data.get("status", "")
+    bookings = load_bookings()
+    if token not in bookings:
+        return jsonify({"error": "Booking not found"}), 404
+    bookings[token]["status"] = status
+    bookings[token]["updated_at"] = datetime.datetime.now().isoformat()
+    if data.get("notes"):
+        bookings[token]["notes"] = data["notes"]
+    if data.get("payment_ref"):
+        bookings[token]["payment_ref"] = data["payment_ref"]
+    if data.get("payment_method"):
+        bookings[token]["payment_method"] = data["payment_method"]
+    save_bookings(bookings)
+    return jsonify({"success": True})
+
+@app.route("/bookings", methods=["GET"])
+@login_required
+def get_bookings():
+    bookings = load_bookings()
+    return jsonify(list(bookings.values()))
+@app.route("/bookings/delete", methods=["POST"])
+@login_required
+def delete_bookings():
+    data = request.get_json()
+    password = data.get("password", "")
+    tokens = data.get("tokens", [])
+    if password != get_admin_pass():
+        return jsonify({"error": "Invalid password."}), 403
+    if not tokens:
+        return jsonify({"error": "No tokens provided."}), 400
+    bookings = load_bookings()
+    deleted = 0
+    for token in tokens:
+        if token in bookings:
+            del bookings[token]
+            deleted += 1
+    save_bookings(bookings)
+    return jsonify({"success": True, "deleted": deleted})
+@app.route("/debug/pdf_test", methods=["GET"])
+@login_required
+def debug_pdf_test():
+    try:
+        hq.generate_pdf_weasy({"header":"Invoice","logo":"","from":"Test Co","to":"Client","number":"TEST-001","date":"28 May 2026","due_date":"04 Jun 2026","items":[{"name":"Test Item","quantity":1,"unit_cost":100}],"discounts":0,"notes":"","terms":"","currency":"USD"}, "/tmp/test_weasy.pdf")
+        return jsonify({"success": True, "message": "WeasyPrint OK"})
+    except Exception as e:
+        import traceback
+        return jsonify({"error": str(e), "trace": traceback.format_exc()})
+
+@app.route("/admin/wipe_data", methods=["POST"])
+@login_required
+def wipe_data():
+    data = request.get_json()
+    if data.get("password") != get_admin_pass():
+        return jsonify({"error": "Invalid password"}), 403
+    pathlib.Path(RECORDS_FILE).write_text("[]")
+    pathlib.Path(BOOKINGS_FILE).write_text("{}")
+    return jsonify({"success": True, "message": "Wiped."})
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
