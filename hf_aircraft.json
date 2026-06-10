@@ -1,7 +1,7 @@
 {
   "as350": {
     "active": true,
-    "allow_urban_hops": true,
+    "allow_urban_hops": false,
     "base_lat": -1.3202647,
     "base_lon": 36.8148652,
     "home_airstrip": "Wilson Airport, Nairobi",
