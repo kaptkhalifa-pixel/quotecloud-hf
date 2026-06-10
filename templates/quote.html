@@ -684,6 +684,9 @@ async function submitBookingForm(){
   if(!name){errEl.textContent='Please enter your name.';errEl.style.display='block';return;}
   if(!whatsapp){errEl.textContent='Please enter your WhatsApp number.';errEl.style.display='block';return;}
   errEl.style.display='none';
+  let pdfBtn=document.querySelector('#bm-step1 button');
+  let pdfBtnOriginal=pdfBtn?pdfBtn.innerHTML:'';
+  if(pdfBtn){pdfBtn.disabled=true;pdfBtn.innerHTML='<span style="display:inline-flex;align-items:center;justify-content:center;gap:8px"><span style="width:14px;height:14px;border:2px solid rgba(0,0,0,0.25);border-top-color:#0d1b2a;border-radius:50%;display:inline-block;animation:spin 0.7s linear infinite"></span>Generating PDF...</span>';}
   let res=currentBookingResult, actual=res;
   if(res.mission==='return_both'){
     let wd=res.wait_days||0,maxN=res.max_nights||3;
@@ -706,6 +709,7 @@ async function submitBookingForm(){
     let waLines=["Hi, I'd like to request an invoice for a charter.","","Ref: "+token,"Name: "+name,"Aircraft: "+(res.ac_label||''),"Route: "+routeSummary,"Total: USD $"+total.toLocaleString(undefined,{minimumFractionDigits:2})];
     document.getElementById('bm-wa-link').href='https://wa.me/'+waNum+'?text='+encodeURIComponent(waLines.join('\n'));
   }
+  if(pdfBtn){pdfBtn.disabled=false;pdfBtn.innerHTML=pdfBtnOriginal;}
   document.getElementById('bm-token-display').textContent='Ref: '+token;
   document.getElementById('bm-step1').style.display='none';
   document.getElementById('bm-step2').style.display='block';
