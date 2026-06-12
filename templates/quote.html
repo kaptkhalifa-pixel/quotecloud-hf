@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title id="page-title">Charter Quotes</title>
 <style>body{visibility:hidden}</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -154,6 +156,12 @@ body { font-family: 'Inter', sans-serif; background: var(--navy); color: var(--w
 .slider-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); cursor: pointer; transition: background 0.2s; }
 .slider-dot.active { background: var(--gold); }
 .slider-counter { color: rgba(255,255,255,0.5); font-size: 0.72rem; margin-top: 8px; }
+.flatpickr-calendar { font-family: 'Inter', sans-serif; border-radius: 3px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); border: 1px solid var(--border-gold); }
+.flatpickr-day.selected, .flatpickr-day.selected:hover { background: var(--gold); border-color: var(--gold); color: var(--navy); }
+.flatpickr-day:hover { background: rgba(201,168,76,0.1); }
+.flatpickr-months .flatpickr-month { background: var(--navy); color: #fff; }
+.flatpickr-current-month { color: #fff; }
+.flatpickr-weekday { color: var(--grey); }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 @media(max-width:700px) {
@@ -472,6 +480,7 @@ function addLeg(){
   document.getElementById('safari-legs').appendChild(div);
   attachAc(document.getElementById(originId));
   attachAc(document.getElementById(destId));
+  div.querySelectorAll('.leg-date').forEach(function(el){flatpickr(el,{dateFormat:'d M Y',minDate:'today',disableMobile:false});});
 }
 
 function showResolving(show){
@@ -744,7 +753,10 @@ function resetQuote(){
 
 init();
 initAutocomplete();
-
+flatpickr('#ow-date',{dateFormat:'d M Y',minDate:'today',disableMobile:false});
+let departPicker=flatpickr('#rt-depart',{dateFormat:'d M Y',minDate:'today',disableMobile:false,onChange:function(d){if(d[0])returnPicker.set('minDate',d[0]);}});
+let returnPicker=flatpickr('#rt-return',{dateFormat:'d M Y',minDate:'today',disableMobile:false});
+document.querySelectorAll('.leg-date').forEach(function(el){flatpickr(el,{dateFormat:'d M Y',minDate:'today',disableMobile:false});});
 document.addEventListener('touchend', function(e) {
   let thumb = e.target.closest('.ac-photo-thumb');
   if (thumb) {
