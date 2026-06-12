@@ -720,7 +720,7 @@ async function submitBookingForm(){
     let pdfResp=await fetch('/booking/pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_name:name,client_email:email,client_phone:whatsapp,token:token,result:actual})});
     if(pdfResp.ok){let pdfUrl=pdfResp.headers.get('X-PDF-URL')||'';let pdfBlob=await pdfResp.blob();let pdfBlobUrl=URL.createObjectURL(pdfBlob);document.getElementById('bm-pdf-link').href=pdfUrl||pdfBlobUrl;}
   }catch(e){console.log('PDF error:',e);}
-  fetch('/booking/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_name:name,client_email:email,client_whatsapp:whatsapp,token_override:token,route_summary:routeSummary,quote_snapshot:{ac_label:res.ac_label,ac_key:res.ac_key,total_usd:total,mission:res.mission,route_summary:routeSummary}})}).catch(e=>console.log('Booking save error:',e));
+  await fetch('/booking/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_name:name,client_email:email,client_whatsapp:whatsapp,token_override:token,route_summary:routeSummary,quote_snapshot:{ac_label:res.ac_label,ac_key:res.ac_key,total_usd:total,mission:res.mission,route_summary:routeSummary}})}).catch(e=>console.log('Booking save error:',e));
   let waNum=((config.contact||{}).whatsapp||'').replace(/^\+/,'').replace(/\s/g,'');
   if(waNum){
     let waLines=["Hi, I'd like to request an invoice for a charter.","","Ref: "+token,"Name: "+name,"Aircraft: "+(res.ac_label||''),"Route: "+routeSummary,"Total: USD $"+total.toLocaleString(undefined,{minimumFractionDigits:2})];
