@@ -494,5 +494,28 @@
     },
     "timestamp": "2026-05-19T01:38:39.022734",
     "type": "Quotation"
+  },
+  {
+    "ac_label": "Airbus H125 (5 seater)",
+    "amount": 2300.0,
+    "client_email": "bb",
+    "client_name": "bb",
+    "client_phone": "33",
+    "client_whatsapp": "33",
+    "date": "13/06/2026",
+    "mission": "one_way",
+    "number": "HF-2026-LJVSHL",
+    "paid": false,
+    "paid_amount": 0,
+    "paid_date": "",
+    "payment_log": [],
+    "payment_mode": "",
+    "payment_ref": "",
+    "pdf_url": "https://i.ibb.co/bRYLmcHd/a7f1fe8f938e.jpg",
+    "receipt_number": "",
+    "result_summary": {},
+    "source": "client",
+    "timestamp": "2026-06-13T11:44:27.331021",
+    "type": "Quotation"
   }
 ]

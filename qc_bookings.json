@@ -1,4 +1,28 @@
 {
+  "HF-2026-LJVSHL": {
+    "ac_key": "as350",
+    "ac_label": "Airbus H125 (5 seater)",
+    "client_email": "bb",
+    "client_name": "bb",
+    "client_whatsapp": "33",
+    "created_at": "2026-06-13T11:44:27.870858",
+    "mission": "one_way",
+    "notes": "",
+    "payment_method": "",
+    "payment_ref": "",
+    "quote_snapshot": {
+      "ac_key": "as350",
+      "ac_label": "Airbus H125 (5 seater)",
+      "mission": "one_way",
+      "route_summary": "Wilson to Narok (58.3 nm)",
+      "total_usd": 2300
+    },
+    "route_summary": "Wilson to Narok (58.3 nm)",
+    "status": "PENDING",
+    "token": "HF-2026-LJVSHL",
+    "total_usd": 2300,
+    "updated_at": "2026-06-13T11:44:27.870865"
+  },
   "HF-Q-100626-3GR31I": {
     "ac_key": "as350",
     "ac_label": "Airbus H125 (5 seater)",
