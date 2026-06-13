@@ -23,6 +23,30 @@
     "total_usd": 2300,
     "updated_at": "2026-06-13T11:44:27.870865"
   },
+  "HF-2026-XJUIZD": {
+    "ac_key": "as350",
+    "ac_label": "Airbus H125 (5 seater)",
+    "client_email": "kk",
+    "client_name": "kk",
+    "client_whatsapp": "55",
+    "created_at": "2026-06-13T12:01:49.909554",
+    "mission": "one_way",
+    "notes": "",
+    "payment_method": "",
+    "payment_ref": "",
+    "quote_snapshot": {
+      "ac_key": "as350",
+      "ac_label": "Airbus H125 (5 seater)",
+      "mission": "one_way",
+      "route_summary": "Wilson to Lamu (251.7 nm) on 13/06/26",
+      "total_usd": 9340
+    },
+    "route_summary": "Wilson to Lamu (251.7 nm) on 13/06/26",
+    "status": "PENDING",
+    "token": "HF-2026-XJUIZD",
+    "total_usd": 9340,
+    "updated_at": "2026-06-13T12:01:49.909559"
+  },
   "HF-Q-100626-3GR31I": {
     "ac_key": "as350",
     "ac_label": "Airbus H125 (5 seater)",

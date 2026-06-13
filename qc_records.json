@@ -517,5 +517,28 @@
     "source": "client",
     "timestamp": "2026-06-13T11:44:27.331021",
     "type": "Quotation"
+  },
+  {
+    "ac_label": "Airbus H125 (5 seater)",
+    "amount": 9340.0,
+    "client_email": "kk",
+    "client_name": "kk",
+    "client_phone": "55",
+    "client_whatsapp": "55",
+    "date": "13/06/2026",
+    "mission": "one_way",
+    "number": "HF-2026-XJUIZD",
+    "paid": false,
+    "paid_amount": 0,
+    "paid_date": "",
+    "payment_log": [],
+    "payment_mode": "",
+    "payment_ref": "",
+    "pdf_url": "https://i.ibb.co/jPQkQ6d8/c8f1629ddaab.jpg",
+    "receipt_number": "",
+    "result_summary": {},
+    "source": "client",
+    "timestamp": "2026-06-13T12:01:49.303662",
+    "type": "Quotation"
   }
 ]
