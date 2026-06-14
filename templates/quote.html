@@ -311,7 +311,7 @@ body { font-family: 'Inter', sans-serif; background: var(--navy); color: var(--w
   <div style="margin-top:10px;font-family:'Inter',sans-serif;font-size:0.6rem;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.3)">Tap image to open full size</div>
 </div>
 <script>
-// Quotecloud Heli Flight v3.0.0 - Navy/Gold skin
+// Quotecloud Heli Flight v3.0.1 - Navy/Gold skin
 let config = {};
 let fxRates = {};
 let lastResults = [];
@@ -383,7 +383,7 @@ function applyBranding() {
   if (footerLogo) footerLogo.style.display='none';
   if (qLogo) qLogo.style.display='none';
   let region = (config.geo_lock||{}).region_name||'Kenya';
-  document.getElementById('header-region').textContent = region;
+  let headerRegion = document.getElementById('header-region'); if(headerRegion) headerRegion.textContent = region;
   let wa=(config.contact||{}).whatsapp||'', phone=(config.contact||{}).phone||'';
   let greeting=(config.contact||{}).whatsapp_greeting||"Hi, I'd like to enquire about a charter flight.";
   if (wa) document.getElementById('btn-whatsapp').href=`https://wa.me/${wa}?text=${encodeURIComponent(greeting)}`;
