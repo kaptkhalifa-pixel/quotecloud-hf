@@ -498,6 +498,8 @@ async function submitQuote(mission) {
       if(!rawP||!rawD){showLoading(false);return showError('Please enter both From and To locations.');}
       showResolving(true); let p=await resolveLocationClientSide(rawP), d=await resolveLocationClientSide(rawD); showResolving(false);
       body.pickup=(p&&isMapsUrl(rawP))?p.resolved:rawP; body.dropoff=(d&&isMapsUrl(rawD))?d.resolved:rawD;
+      if(clientPlaceIdMap['ow-pickup']) body.pickup_place_id=clientPlaceIdMap['ow-pickup'];
+      if(clientPlaceIdMap['ow-dropoff']) body.dropoff_place_id=clientPlaceIdMap['ow-dropoff'];
       body.depart=parseSmartDate(document.getElementById('ow-date').value)||'';
     } else if(mission==='return'){
       let rawP=document.getElementById('rt-pickup').value.trim(), rawD=document.getElementById('rt-dropoff').value.trim();
