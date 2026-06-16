@@ -1419,10 +1419,14 @@ function recalcAdjuster(idx) {
   if (adjSummary) adjSummary.innerHTML = `<strong>Adjusted Total: USD $${total.toLocaleString(undefined,{minimumFractionDigits:2})}</strong>${kesFx} &nbsp;·&nbsp; ${hrs} hrs @ $${rate}/hr &nbsp; <button onclick="confirmApply(${idx})" style="padding:4px 12px;background:#1b5e20;color:#fff;border:none;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;margin-left:8px">Apply New Values →</button>`;
   if (adjSummary) adjSummary.style.display = 'block';
 }
-khalifkairo@Khalifs-MacBook-Air ~ % grep -n "TOTAL ESTIMATE" ~/Desktop/quotecloud/templates/index.html
-
-1227:  return `<div class="billing">${rows}<div class="billing-total"><span>TOTAL ESTIMATE</span><span>USD $${(res.total_usd||0).toLocaleString(undefined,{minimumFractionDigits:2})}</span></div></div>`;
-khalifkairo@Khalifs-MacBook-Air ~ % 
+function confirmApply(idx) {
+  let rate = parseFloat(document.getElementById('adj-rate-'+idx).value) || 0;
+  let pax = parseFloat(document.getElementById('adj-pax-'+idx).value) || 0;
+  let total = lastResults[idx]._adj_total || 0;
+  let adjSummary = document.getElementById('adj-summary-'+idx);
+  if (adjSummary) adjSummary.innerHTML = `✅ <strong>New values applied.</strong> PDF will use Rate: $${rate}/hr, Pax/Admin: $${pax}, Total: USD $${total.toLocaleString(undefined,{minimumFractionDigits:2})}. Proceed to Generate PDF below.`;
+  adjSummary.style.background = '#c8e6c9';
+}
 
 function calcReverse(idx) {
   let res = lastResults[idx];
