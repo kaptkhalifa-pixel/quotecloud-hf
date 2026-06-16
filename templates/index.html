@@ -1573,6 +1573,7 @@ async function generatePDF(allAircraft) {
     if (docNumber) msg += ` Added to Enquiries as <strong>${docNumber}</strong>.`;
     showMsg('pdf-msg', msg, 'success');
     loadEnquiries();
+    loadRecords();
   } catch(e) { showMsg('pdf-msg','Error: '+e.message,'error'); }
 }
 
