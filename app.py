@@ -415,7 +415,7 @@ def resolve_location(s, user_label=None):
                         loc = gdata["results"][0]["geometry"]["location"]
                         lat, lon = float(loc["lat"]), float(loc["lng"])
                         if check_geo_lock(lat, lon):
-                            display = reverse_geocode(lat, lon) or f"Pin, {lat:.5f}, {lon:.5f}"
+                            display = original_input.strip().title() if original_input != s else (reverse_geocode(lat, lon) or f"Pin, {lat:.5f}, {lon:.5f}")
                             return display, f"{lat},{lon}"
                 except Exception:
                     pass
@@ -939,7 +939,7 @@ def build_pdf_payload_from_result(doc_type, result, client_name, client_email,
         "items": items,
         "discounts": disc,
         "fields": {"tax": False, "discounts": True, "shipping": False},
-        "notes": bank_block,
+        "notes": bank_block + (f"\n\nNote: {note}" if note else ""),
         "notes_title": "BANK DETAILS",
         "terms": terms,
         "terms_title": "TERMS & CONDITIONS",
