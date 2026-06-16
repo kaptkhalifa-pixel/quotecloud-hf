@@ -992,8 +992,10 @@ def pdf():
 
         out_path = f"/tmp/{doc_number}.pdf"
         hq.generate_pdf_weasy(payload, out_path)
-
         pdf_url = upload_pdf_to_imgbb(out_path)
+        with open(out_path, "rb") as f:
+            pdf_bytes = f.read()
+
         total = calc_pdf_total(result, extra_items, discount)
         save_record(doc_type, client_name, client_email, total, doc_number, {
             "ac_label": result.get("ac_label", ""),
@@ -1035,7 +1037,8 @@ def pdf():
             }
             save_bookings(bookings)
 
-        response = send_file(out_path, as_attachment=False,
+        import io
+        response = send_file(io.BytesIO(pdf_bytes), as_attachment=False,
                              download_name=f"{doc_number}.pdf",
                              mimetype="application/pdf")
         response.headers["X-PDF-URL"] = pdf_url or ""
