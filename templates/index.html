@@ -124,6 +124,24 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 .otab.active { background: {{ operator.branding.accent_color }}; color: #fff; border-color: {{ operator.branding.accent_color }}; }
 .otab-content { display: none; }
 .otab-content.active { display: block; }
+/* QUOTE ADJUSTER */
+.adjuster-panel { background: #fff; border: 1.5px dashed #ddd; border-radius: 10px; padding: 14px; margin-top: 12px; }
+.adjuster-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 0.82rem; font-weight: 600; color: #555; padding: 6px 0; user-select: none; }
+.adjuster-toggle:hover { color: #333; }
+.adjuster-body { display: none; margin-top: 12px; }
+.adjuster-body.open { display: block; }
+.adjuster-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.adjuster-field label { font-size: 0.65rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+.adjuster-field input { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.88rem; font-family: inherit; }
+.adjuster-field input:focus { border-color: #1a56db; outline: none; }
+.adjuster-divider { border: none; border-top: 1px solid #eee; margin: 12px 0; }
+.adjuster-reverse { background: #f8f9fa; border-radius: 8px; padding: 12px; }
+.adjuster-reverse-title { font-size: 0.72rem; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.adjuster-result { font-size: 0.82rem; color: #1a56db; font-weight: 600; margin-top: 8px; min-height: 20px; }
+.preset-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.preset-chip { padding: 4px 10px; border-radius: 12px; border: 1px solid #ddd; background: #fff; font-size: 0.72rem; font-weight: 600; cursor: pointer; color: #555; transition: all 0.2s; }
+.preset-chip:hover { border-color: #1a56db; color: #1a56db; }
+.preset-chip.active { background: #1a56db; color: #fff; border-color: #1a56db; }
 
 /* PDF SECTION */
 .pdf-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid #eee; }
@@ -493,7 +511,8 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   </div>
 
   <div class="card">
-    <h3>All Records</h3>
+    <h3>
+All Records</h3>
     <div class="filter-tabs">
       <div class="filter-tab active" onclick="filterRecordsByType('all',this)">All</div>
       <div class="filter-tab" onclick="filterRecordsByType('Quotation',this)">Quotes</div>
@@ -870,8 +889,9 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
 </div>
 
 <script>
-// Quotecloud Admin v2.5.1 - Mobile optimized
+// Quotecloud Admin v2.6.0 - Mobile optimized
 let lastResults = [];
+let fxRates = {};
 let placeIdMap = {};
 let allLocations = [];
 let aircraftData = {};
@@ -1037,7 +1057,6 @@ async function submitQuote(mission) {
     renderResults(lastResults);
     document.getElementById('pdf-section').style.display = 'block';
     populatePdfAircraftSelector();
-    document.getElementById('pdf-section').scrollIntoView({behavior:'smooth', block:'start'});
   } catch(e) {
     document.getElementById('quote-result').innerHTML = `<div class="error-box">Network error: ${e.message}</div>`;
   }
@@ -1095,12 +1114,14 @@ function getSelectedResult() {
   } else {
     actual = res;
   }
-  actual.rate_usd = res.rate_usd;
+  actual.rate_usd = res._adj_rate || res.rate_usd;
   actual.overnight_rate_usd = res.overnight_rate_usd;
   actual.idle_day_rate_usd = res.idle_day_rate_usd;
-  actual.pax_fee_usd_display = res.pax_fee_usd_display;
+  actual.pax_fee_usd_display = res._adj_pax !== undefined ? res._adj_pax : res.pax_fee_usd_display;
   actual.ac_label = res.ac_label;
   actual.ac_key = res.ac_key;
+  if (res._adj_total !== undefined) actual.total_usd = res._adj_total;
+  if (res._adj_rate !== undefined) actual._was_adjusted = true;
   return actual;
 }
 
@@ -1204,7 +1225,9 @@ function renderBilling(res, extraSegs) {
     let idleDays = idleRate > 0 ? Math.round(waitingUsd / idleRate) : 1;
     rows += `<div class="billing-row"><span>Idle Day Charge (${idleDays} day${idleDays!==1?'s':''} @ $${idleRate.toLocaleString()}/day)</span><span>USD $${parseFloat(waitingUsd).toLocaleString(undefined,{minimumFractionDigits:2})}</span></div>`;
   }
-  return `<div class="billing">${rows}<div class="billing-total"><span>TOTAL ESTIMATE</span><span>USD $${(res.total_usd||0).toLocaleString(undefined,{minimumFractionDigits:2})}</span></div></div>`;
+  let kesRate = fxRates['KES'] || 0;
+  let kesFx = kesRate > 0 ? `<div style="font-size:0.72rem;color:#888;text-align:right;margin-top:4px">≈ KES ${Math.round((res.total_usd||0)*kesRate).toLocaleString()}</div>` : '';
+  return `<div class="billing">${rows}<div class="billing-total"><span>TOTAL ESTIMATE</span><span>USD $${(res.total_usd||0).toLocaleString(undefined,{minimumFractionDigits:2})}</span></div>${kesFx}</div>`;
 }
 
 function renderOneAc(res) {
@@ -1257,13 +1280,202 @@ function switchOtab(el, id) {
 }
 
 function renderResults(results) {
-  let html = results.map(res => `
-    <div class="ac-card">
+  lastResults = results;
+  let html = results.map((res, i) => `
+    <div class="ac-card" id="ac-card-${i}">
       <div class="ac-title">${res.ac_label||''}</div>
       ${renderOneAc(res)}
+      ${renderAdjuster(res, i)}
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn btn-sm" onclick="quickPDF(${i})">📄 Generate PDF</button>
+        <button class="btn btn-outline btn-sm" onclick="quickWA(${i})">💬 Share via WhatsApp</button>
+      </div>
     </div>`).join('');
   document.getElementById('quote-result').innerHTML = html;
+  loadPresetChips();
 }
+
+function quickPDF(idx) {
+  let sel = document.getElementById('pdf-aircraft-select');
+  if (sel) { sel.value = idx; updateOptionSelector(); }
+  document.getElementById('pdf-section').style.display = 'block';
+  document.getElementById('pdf-section').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function quickWA(idx) {
+  let res = lastResults[idx];
+  if (!res) return;
+  let wa = prompt('WhatsApp number (with country code):');
+  if (!wa) return;
+  let total = res._adj_total || res.total_usd || 0;
+  if (res.mission === 'return_both') total = res._adj_total || res.option_a?.total_usd || 0;
+  let segs = res.segments || res.option_a?.segments || [];
+  let route = segs.filter(s=>s.type==='revenue').map(s=>s.origin+' → '+s.destination+(s.date?' on '+s.date:'')).join(', ');
+  let lines = [
+    `Dear Client,`,
+    ``,
+    `Please find below a charter quote from ${operatorConfig.company_name||'us'}:`,
+    ``,
+    `Aircraft: ${res.ac_label||''}`,
+    `Route: ${route}`,
+    `Total: USD $${total.toLocaleString(undefined,{minimumFractionDigits:2})}`,
+    ``,
+    `Quote valid 48 hours · Subject to availability.`,
+    `Please confirm to proceed.`
+  ];
+  let url = 'https://wa.me/'+wa.replace(/[^0-9]/g,'')+'?text='+encodeURIComponent(lines.join('\n'));
+  window.open(url, '_blank');
+}
+
+function renderAdjuster(res, idx) {
+  let rate = res.rate_usd || 0;
+  let speed = res.speed_ktas || res.speed || 120;
+  let pax = res.pax_fee_usd || res.pax_fee_usd_display || 0;
+  return `
+  <div class="adjuster-panel">
+    <div class="adjuster-toggle" onclick="toggleAdjuster(${idx})">
+      <span>⚙ Adjust Variables</span>
+      <span id="adj-arrow-${idx}">▼</span>
+    </div>
+    <div class="adjuster-body" id="adj-body-${idx}">
+      <div style="background:#f0f4ff;border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:0.78rem;color:#555">
+        <strong>Original:</strong> &nbsp; Rate: <strong>$${rate}/hr</strong> &nbsp;·&nbsp; Speed: <strong>${speed} KTAS</strong> &nbsp;·&nbsp; Pax/Admin: <strong>$${pax}</strong> &nbsp;·&nbsp; Total: <strong>USD $${(res.total_usd||0).toLocaleString(undefined,{minimumFractionDigits:2})}</strong>
+      </div>
+      <div class="adjuster-grid">
+        <div class="adjuster-field">
+          <label>Rate / hr (USD)</label>
+          <input type="number" id="adj-rate-${idx}" value="${rate}" oninput="recalcAdjuster(${idx})">
+        </div>
+        <div class="adjuster-field">
+          <label>Speed (KTAS)</label>
+          <input type="number" id="adj-speed-${idx}" value="${speed}" oninput="recalcAdjuster(${idx})">
+        </div>
+        <div class="adjuster-field">
+          <label>Pax / Admin (USD)</label>
+          <input type="number" id="adj-pax-${idx}" value="${pax}" oninput="recalcAdjuster(${idx})">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-sm" onclick="recalcAdjuster(${idx})">↺ Recalculate</button>
+        <button class="btn btn-success btn-sm" onclick="savePreset(${idx})">💾 Save as Preset</button>
+      </div>
+      <div class="preset-row" id="preset-chips-${idx}"></div>
+      <div id="adj-summary-${idx}" style="margin-top:10px;padding:10px;background:#e8f5e9;border-radius:6px;font-size:0.82rem;color:#155724;display:none"></div>
+      <hr class="adjuster-divider">
+      <div class="adjuster-reverse">
+        <div class="adjuster-reverse-title">🔄 Reverse Mode — Target Price</div>
+        <div class="adjuster-grid" style="grid-template-columns:1fr 1fr;gap:10px">
+          <div class="adjuster-field">
+            <label>Target Total (USD)</label>
+            <input type="number" id="adj-target-${idx}" placeholder="e.g. 15000" oninput="calcReverse(${idx})">
+          </div>
+          <div class="adjuster-field">
+            <label>Keep Pax/Admin</label>
+            <input type="number" id="adj-rev-pax-${idx}" value="${pax}" oninput="calcReverse(${idx})">
+          </div>
+        </div>
+        <div class="adjuster-result" id="adj-rev-result-${idx}"></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleAdjuster(idx) {
+  let body = document.getElementById('adj-body-'+idx);
+  let arrow = document.getElementById('adj-arrow-'+idx);
+  body.classList.toggle('open');
+  arrow.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+
+function getTotalHours(res) {
+  let segs = res.segments || [];
+  if (res.mission === 'return_both') segs = res.option_a?.segments || [];
+  let t = 0;
+  segs.forEach(s => { if (s.hours && s.type) t += parseFloat(s.hours); });
+  return Math.round(t * 10) / 10;
+}
+
+function recalcAdjuster(idx) {
+  let res = lastResults[idx];
+  if (!res) return;
+  let rate = parseFloat(document.getElementById('adj-rate-'+idx).value) || 0;
+  let pax = parseFloat(document.getElementById('adj-pax-'+idx).value) || 0;
+  let hrs = getTotalHours(res);
+  let flightCost = Math.round(hrs * rate * 100) / 100;
+  let total = Math.round((flightCost + pax) * 100) / 100;
+  let card = document.getElementById('ac-card-'+idx);
+  let totalEl = card.querySelector('.billing-total span:last-child');
+  let flightEl = card.querySelectorAll('.billing-row')[0]?.querySelector('span:last-child');
+  let paxEl = card.querySelectorAll('.billing-row')[1]?.querySelector('span:last-child');
+  if (totalEl) totalEl.textContent = 'USD $' + total.toLocaleString(undefined, {minimumFractionDigits:2});
+  if (flightEl) flightEl.textContent = 'USD $' + flightCost.toLocaleString(undefined, {minimumFractionDigits:2});
+  if (paxEl) paxEl.textContent = 'USD $' + pax.toLocaleString();
+  lastResults[idx]._adj_rate = rate;
+  lastResults[idx]._adj_pax = pax;
+  lastResults[idx]._adj_total = total;
+  let kesRate = fxRates['KES'] || 0;
+  let kesFx = kesRate > 0 ? ` &nbsp;·&nbsp; KES ${Math.round(total*kesRate).toLocaleString()}` : '';
+  let adjSummary = document.getElementById('adj-summary-'+idx);
+  if (adjSummary) adjSummary.innerHTML = `<strong>Adjusted Total: USD $${total.toLocaleString(undefined,{minimumFractionDigits:2})}</strong>${kesFx} &nbsp;·&nbsp; ${hrs} hrs @ $${rate}/hr`;
+  if (adjSummary) adjSummary.style.display = 'block';
+}
+
+function calcReverse(idx) {
+  let res = lastResults[idx];
+  if (!res) return;
+  let target = parseFloat(document.getElementById('adj-target-'+idx).value) || 0;
+  let pax = parseFloat(document.getElementById('adj-rev-pax-'+idx).value) || 0;
+  let hrs = getTotalHours(res);
+  let el = document.getElementById('adj-rev-result-'+idx);
+  if (!target || !hrs) { el.textContent = ''; return; }
+  let impliedFlight = target - pax;
+  let impliedRate = Math.round((impliedFlight / hrs) * 100) / 100;
+  if (impliedRate < 0) { el.textContent = 'Target too low — increase target price.'; el.style.color='#dc3545'; return; }
+  el.style.color = '#1a56db';
+  el.innerHTML = `Implied Rate: <strong>$${impliedRate.toLocaleString(undefined,{minimumFractionDigits:2})}/hr</strong> &nbsp;·&nbsp; Flight Cost: <strong>$${impliedFlight.toLocaleString(undefined,{minimumFractionDigits:2})}</strong> &nbsp;·&nbsp; <a href="#" onclick="applyReverseRate(${idx},${impliedRate},${pax});return false" style="color:#28a745;font-weight:700">Apply →</a>`;
+}
+
+function applyReverseRate(idx, rate, pax) {
+  document.getElementById('adj-rate-'+idx).value = rate;
+  document.getElementById('adj-pax-'+idx).value = pax;
+  recalcAdjuster(idx);
+}
+
+function loadPresetChips() {
+  let presets = operatorConfig.rate_presets || [];
+  document.querySelectorAll('[id^="preset-chips-"]').forEach(el => {
+    let idx = el.id.replace('preset-chips-','');
+    el.innerHTML = presets.map((p,pi) =>
+      `<span class="preset-chip" onclick="applyPreset(${idx},${pi})">${p.name}</span>`
+    ).join('');
+  });
+}
+
+function applyPreset(idx, pi) {
+  let presets = operatorConfig.rate_presets || [];
+  let p = presets[pi];
+  if (!p) return;
+  document.getElementById('adj-rate-'+idx).value = p.rate;
+  document.getElementById('adj-pax-'+idx).value = p.pax;
+  if (p.speed) document.getElementById('adj-speed-'+idx).value = p.speed;
+  recalcAdjuster(idx);
+  document.querySelectorAll(`#preset-chips-${idx} .preset-chip`).forEach((c,i) => c.classList.toggle('active', i===pi));
+}
+
+async function savePreset(idx) {
+  let name = prompt('Preset name (e.g. Peak Season, Wet Lease):');
+  if (!name) return;
+  let rate = parseFloat(document.getElementById('adj-rate-'+idx).value) || 0;
+  let pax = parseFloat(document.getElementById('adj-pax-'+idx).value) || 0;
+  let speed = parseFloat(document.getElementById('adj-speed-'+idx).value) || 0;
+  let presets = operatorConfig.rate_presets || [];
+  presets.push({name, rate, pax, speed});
+  operatorConfig.rate_presets = presets;
+  await fetch('/settings/save', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(operatorConfig)});
+  loadPresetChips();
+  showMsg('pdf-msg', `Preset "${name}" saved.`, 'success');
+}
+
 let adminAcTimers = {};
 async function adminAcFetch(query, drop, input) {
   try {
@@ -1996,7 +2208,9 @@ document.addEventListener('DOMContentLoaded', () => {
   ['paid-modal','log-modal','edit-modal','delete-modal','invoice-builder-modal','share-modal'].forEach(id => {
     document.getElementById(id).addEventListener('click', function(e) { if (e.target === this) this.classList.remove('active'); });
   });
+   loadFX();
   loadStateFromStorage();
+
   try {
     let savedTab = localStorage.getItem('qc_active_tab');
     if (savedTab && savedTab !== 'quote') {
@@ -2119,6 +2333,13 @@ async function changePassword() {
   } catch(e) { showMsg('pass-msg','Network error.','error'); }
 }
 let allEnquiries = [];
+async function loadFX() {
+  try {
+    let r = await fetch('/fx/rates');
+    let data = await r.json();
+    if (data.success) fxRates = data.rates;
+  } catch(e) {}
+}
 
 async function loadEnquiries() {
   try {
